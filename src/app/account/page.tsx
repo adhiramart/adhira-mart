@@ -137,12 +137,12 @@ export default async function AccountPage() {
             >
               Shop Now
             </Link>
-            <Link
+            <a
               href="/api/auth/logout"
               className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-neutral-800 transition-colors shadow-sm"
             >
               Sign Out
-            </Link>
+            </a>
           </div>
         </div>
 
