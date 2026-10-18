@@ -9,27 +9,23 @@ export interface ShopifyAuthConfig {
 }
 
 export function getShopifyAuthConfig(): ShopifyAuthConfig {
-  const shopDomain = process.env.SHOPIFY_STORE_DOMAIN || "x1v4u2-ai.myshopify.com";
-  const shopId = process.env.SHOPIFY_SHOP_ID || "68068278406";
-  const clientId = process.env.SHOPIFY_CUSTOMER_ACCOUNT_CLIENT_ID || "";
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const shopDomain = (process.env.SHOPIFY_STORE_DOMAIN || "x1v4u2-ai.myshopify.com").trim();
+  const shopId = (process.env.SHOPIFY_SHOP_ID || "68068278406").trim();
+  const clientId = (process.env.SHOPIFY_CUSTOMER_ACCOUNT_CLIENT_ID || "").trim();
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim();
 
   return { shopDomain, shopId, clientId, appUrl };
 }
 
 export function getAppBaseUrl(requestHost?: string | null, requestProto?: string | null): string {
-  const { appUrl } = getShopifyAuthConfig();
-  if (appUrl && !appUrl.includes("localhost")) {
-    return appUrl.replace(/\/$/, "");
-  }
-
   if (requestHost) {
     const isLocal = requestHost.includes("localhost") || requestHost.includes("127.0.0.1");
     const proto = isLocal ? "http" : (requestProto || "https");
-    return `${proto}://${requestHost}`;
+    return `${proto}://${requestHost}`.replace(/\/$/, "");
   }
 
-  return appUrl.replace(/\/$/, "");
+  const { appUrl } = getShopifyAuthConfig();
+  return (appUrl || "http://localhost:3000").replace(/\/$/, "");
 }
 
 export function getRedirectUri(requestHost?: string | null, requestProto?: string | null): string {
