@@ -46,6 +46,7 @@ export default function ProductInfoSection({
   const [pincode, setPincode] = useState("");
   const [deliveryStatus, setDeliveryStatus] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isBuyingNow, setIsBuyingNow] = useState(false);
   const [activeTab, setActiveTab] = useState<"details" | "reviews" | "faqs">("details");
 
   // Determine current price and compare-at price
@@ -114,10 +115,25 @@ export default function ProductInfoSection({
 
   // Instant Buy Now handler
   const handleBuyNow = async () => {
-    if (!selectedVariant || !isAvailable) return;
-    const success = await addToCart(selectedVariant.id, quantity);
-    if (!success) {
+    if (!selectedVariant || !isAvailable || isBuyingNow) return;
+    setIsBuyingNow(true);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variantId: selectedVariant.id, quantity }),
+      });
+      const data = await res.json();
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        throw new Error(data.error || "Unable to start checkout");
+      }
+    } catch (err) {
+      console.error("Buy Now checkout error:", err);
       setFeedback("Could not proceed to checkout. Please try again.");
+      setIsBuyingNow(false);
     }
   };
 
@@ -376,10 +392,20 @@ export default function ProductInfoSection({
             <button
               type="button"
               onClick={handleBuyNow}
-              disabled={isLoading}
-              className="bg-[#008ECC] hover:bg-[#007AB0] text-white py-4 px-8 rounded-full font-bold text-sm sm:text-base transition-all shadow-md active:scale-[0.99] shrink-0 text-center"
+              disabled={isLoading || isBuyingNow}
+              className="bg-[#008ECC] hover:bg-[#007AB0] text-white py-4 px-8 rounded-full font-bold text-sm sm:text-base transition-all shadow-md active:scale-[0.99] shrink-0 text-center flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Buy Now
+              {isBuyingNow ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Redirecting...</span>
+                </>
+              ) : (
+                <span>Buy Now</span>
+              )}
             </button>
           )}
         </div>

@@ -293,3 +293,100 @@ export async function removeShopifyCartLine(cartId: string, lineId: string): Pro
 
   return data.cartLinesRemove.cart;
 }
+
+interface CartBuyerIdentityUpdateResponse {
+  cartBuyerIdentityUpdate: {
+    cart: ShopifyCart | null;
+    userErrors: Array<{ code?: string; field?: string[]; message: string }>;
+  };
+}
+
+export async function updateShopifyCartBuyerIdentity(
+  cartId: string,
+  buyerIdentity: {
+    email?: string;
+    phone?: string;
+    countryCode?: string;
+  }
+): Promise<ShopifyCart> {
+  const query = `
+    mutation cartBuyerIdentityUpdate($cartId: ID!, $buyerIdentity: CartBuyerIdentityInput!) {
+      cartBuyerIdentityUpdate(cartId: $cartId, buyerIdentity: $buyerIdentity) {
+        cart {
+          ${CART_FRAGMENT}
+        }
+        userErrors {
+          code
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyFetch<CartBuyerIdentityUpdateResponse>({
+    query,
+    variables: {
+      cartId,
+      buyerIdentity,
+    },
+  });
+
+  if (data.cartBuyerIdentityUpdate.userErrors.length > 0) {
+    console.warn("Buyer identity update warning:", data.cartBuyerIdentityUpdate.userErrors);
+  }
+
+  if (!data.cartBuyerIdentityUpdate.cart) {
+    throw new Error("Failed to update cart buyer identity");
+  }
+
+  return data.cartBuyerIdentityUpdate.cart;
+}
+
+export async function createInstantCheckoutCart(
+  variantId: string,
+  quantity = 1,
+  buyerEmail?: string
+): Promise<ShopifyCart> {
+  const query = `
+    mutation cartCreate($input: CartInput) {
+      cartCreate(input: $input) {
+        cart {
+          ${CART_FRAGMENT}
+        }
+        userErrors {
+          code
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const input: {
+    lines: Array<{ merchandiseId: string; quantity: number }>;
+    buyerIdentity?: { email: string };
+  } = {
+    lines: [{ merchandiseId: variantId, quantity }],
+  };
+
+  if (buyerEmail) {
+    input.buyerIdentity = { email: buyerEmail };
+  }
+
+  const data = await shopifyFetch<CartCreateResponse>({
+    query,
+    variables: { input },
+  });
+
+  if (data.cartCreate.userErrors.length > 0) {
+    throw new Error(data.cartCreate.userErrors.map((e) => e.message).join(", "));
+  }
+
+  if (!data.cartCreate.cart) {
+    throw new Error("Failed to create instant checkout cart");
+  }
+
+  return data.cartCreate.cart;
+}
+
