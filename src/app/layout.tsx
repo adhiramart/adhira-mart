@@ -4,6 +4,7 @@ import Navbar from "../modules/components/common/Navbar";
 import Footer from "../modules/components/common/Footer";
 import { CartProvider } from "@/modules/context/CartContext";
 import CartDrawer from "@/modules/components/cart/CartDrawer";
+import { getShopifyCollections } from "@/lib/products";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,7 +22,9 @@ export const metadata: Metadata = {
   description: "Find clothes that match your style at Adhira Mart",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const collections = await getShopifyCollections().catch(() => []);
+
   return (
     <html
       lang="en"
@@ -29,7 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-white text-primary">
         <CartProvider>
-          <Navbar />
+          <Navbar initialCollections={collections} />
           <main className="flex-1">{children}</main>
           <Footer />
           <CartDrawer />

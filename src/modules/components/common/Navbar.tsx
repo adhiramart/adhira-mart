@@ -4,15 +4,50 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/modules/context/CartContext";
+import type { ShopifyCollection } from "@/lib/products";
 
-export default function Navbar() {
+interface NavbarProps {
+  initialCollections?: ShopifyCollection[];
+}
+
+export default function Navbar({ initialCollections = [] }: NavbarProps) {
   const router = useRouter();
   const { cart, openCart } = useCart();
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [collections, setCollections] = useState<ShopifyCollection[]>(initialCollections);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(initialCollections.length === 0);
   const shopDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch dynamic category collections from API if not pre-provided
+  useEffect(() => {
+    if (initialCollections.length > 0) {
+      setCollections(initialCollections);
+      setIsLoadingCollections(false);
+      return;
+    }
+
+    let isMounted = true;
+    fetch("/api/collections")
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && Array.isArray(data.collections)) {
+          setCollections(data.collections);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching navbar collections:", err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingCollections(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialCollections]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -37,14 +72,20 @@ export default function Navbar() {
     }
   };
 
-  const shopCategories = [
-    { title: "Men's Clothes", href: "/mens-clothes", desc: "T-Shirts, Jeans, Jackets & more" },
-    { title: "Women's Clothes", href: "/womens-clothes", desc: "Dresses, Tops, Pants & more" },
-    { title: "Casual Wear", href: "/casual", desc: "Everyday relaxed comfortable fits" },
-    { title: "Formal Attire", href: "/formal", desc: "Suits, Blazers, Shirts & Trousers" },
-    { title: "Party & Clubwear", href: "/party", desc: "Glitter, Silks & Evening statements" },
-    { title: "Gym & Activewear", href: "/gym", desc: "Workout sets, breathable sportswear" },
-  ];
+  // Scroll to section on home page or navigate there if on another page
+  const handleScrollToSection = (sectionId: string) => {
+    setIsMobileMenuOpen(false);
+    if (typeof window !== "undefined") {
+      if (window.location.pathname === "/") {
+        const el = document.getElementById(sectionId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+      }
+      router.push(`/#${sectionId}`);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-border/80">
@@ -136,40 +177,52 @@ export default function Navbar() {
             {isShopDropdownOpen && (
               <div
                 onMouseLeave={() => setIsShopDropdownOpen(false)}
-                className="absolute top-full left-0 mt-2 w-72 rounded-2xl bg-white shadow-xl border border-border p-3 grid gap-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                className="absolute top-full left-0 mt-2 w-72 rounded-2xl bg-white shadow-xl border border-border p-3 grid gap-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 max-h-96 overflow-y-auto"
               >
-                {shopCategories.map((cat) => (
-                  <Link
-                    key={cat.href}
-                    href={cat.href}
-                    onClick={() => setIsShopDropdownOpen(false)}
-                    className="group/item flex flex-col p-2.5 rounded-xl hover:bg-secondary transition-colors"
-                  >
-                    <span className="text-sm font-semibold text-primary group-hover/item:text-black">
-                      {cat.title}
-                    </span>
-                    <span className="text-xs text-muted">
-                      {cat.desc}
-                    </span>
-                  </Link>
-                ))}
+                {isLoadingCollections ? (
+                  <div className="py-6 text-center text-xs text-muted">
+                    Loading collections...
+                  </div>
+                ) : collections.length === 0 ? (
+                  <div className="py-4 px-3 text-center text-xs text-muted">
+                    No collections found.
+                  </div>
+                ) : (
+                  collections.map((cat) => (
+                    <Link
+                      key={cat.id || cat.handle}
+                      href={`/collections/${cat.handle}`}
+                      onClick={() => setIsShopDropdownOpen(false)}
+                      className="group/item flex flex-col p-2.5 rounded-xl hover:bg-secondary transition-colors"
+                    >
+                      <span className="text-sm font-semibold text-primary capitalize group-hover/item:text-black">
+                        {cat.title}
+                      </span>
+                      <span className="text-xs text-muted line-clamp-1">
+                        {cat.description || "Explore collection"}
+                      </span>
+                    </Link>
+                  ))
+                )}
               </div>
             )}
           </div>
 
-          <Link
-            href="/collections/new-arrivals"
-            className="text-primary hover:text-muted font-normal transition-colors py-2"
+          <button
+            type="button"
+            onClick={() => handleScrollToSection("recommended-products")}
+            className="text-primary hover:text-muted font-normal transition-colors py-2 cursor-pointer"
           >
             Recommended Products
-          </Link>
+          </button>
 
-          <Link
-            href="/new-arrivals"
-            className="text-primary hover:text-muted font-normal transition-colors py-2"
+          <button
+            type="button"
+            onClick={() => handleScrollToSection("new-arrivals")}
+            className="text-primary hover:text-muted font-normal transition-colors py-2 cursor-pointer"
           >
             New Arrivals
-          </Link>
+          </button>
         </div>
 
         {/* Center: Search Bar (Pill Shape with Light Gray Background) */}
@@ -404,36 +457,42 @@ export default function Navbar() {
                 </button>
 
                 {isShopDropdownOpen && (
-                  <div className="pl-3 py-2 flex flex-col gap-2 border-l-2 border-secondary ml-1">
-                    {shopCategories.map((cat) => (
-                      <Link
-                        key={cat.href}
-                        href={cat.href}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="text-sm font-medium text-muted hover:text-primary py-1.5 transition-colors"
-                      >
-                        {cat.title}
-                      </Link>
-                    ))}
+                  <div className="pl-3 py-2 flex flex-col gap-2 border-l-2 border-secondary ml-1 max-h-60 overflow-y-auto">
+                    {isLoadingCollections ? (
+                      <span className="text-xs text-muted py-1">Loading...</span>
+                    ) : collections.length === 0 ? (
+                      <span className="text-xs text-muted py-1">No collections</span>
+                    ) : (
+                      collections.map((cat) => (
+                        <Link
+                          key={cat.id || cat.handle}
+                          href={`/collections/${cat.handle}`}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="text-sm font-medium text-muted hover:text-primary py-1.5 capitalize transition-colors"
+                        >
+                          {cat.title}
+                        </Link>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
 
-              <Link
-                href="/collections/new-arrivals"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-lg font-medium text-primary py-3 border-b border-border hover:text-muted transition-colors"
+              <button
+                type="button"
+                onClick={() => handleScrollToSection("recommended-products")}
+                className="text-left text-lg font-medium text-primary py-3 border-b border-border hover:text-muted transition-colors cursor-pointer"
               >
                 Recommended Products
-              </Link>
+              </button>
 
-              <Link
-                href="/new-arrivals"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-lg font-medium text-primary py-3 border-b border-border hover:text-muted transition-colors"
+              <button
+                type="button"
+                onClick={() => handleScrollToSection("new-arrivals")}
+                className="text-left text-lg font-medium text-primary py-3 border-b border-border hover:text-muted transition-colors cursor-pointer"
               >
                 New Arrivals
-              </Link>
+              </button>
             </div>
 
             {/* Quick Links in Mobile Drawer */}

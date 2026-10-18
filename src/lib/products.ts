@@ -60,7 +60,7 @@ export async function getProducts(): Promise<ShopifyProduct[]> {
   return data.products.nodes;
 }
 
-export async function getProductsByCollection(handle: string): Promise<ShopifyProduct[]> {
+async function fetchRawCollectionProducts(handle: string): Promise<ShopifyProduct[]> {
   const query = `
     query getCollectionByHandle($handle: String!) {
       collection(handle: $handle) {
@@ -89,14 +89,32 @@ export async function getProductsByCollection(handle: string): Promise<ShopifyPr
     }
   `;
 
-  const data = await shopifyFetch<CollectionResponse>({
-    query,
-    variables: { handle },
-  });
+  try {
+    const data = await shopifyFetch<CollectionResponse>({
+      query,
+      variables: { handle },
+    });
 
-  if (!data.collection) return [];
+    if (!data.collection) return [];
+    return data.collection.products.edges.map((edge) => edge.node);
+  } catch (error) {
+    console.error(`Error fetching collection ${handle}:`, error);
+    return [];
+  }
+}
 
-  return data.collection.products.edges.map((edge) => edge.node);
+export async function getProductsByCollection(handle: string): Promise<ShopifyProduct[]> {
+  const primary = await fetchRawCollectionProducts(handle);
+
+  // If handle is new-arrivals, check if duplicate handle new-arrivals-1 has more products
+  if (handle === "new-arrivals") {
+    const secondary = await fetchRawCollectionProducts("new-arrivals-1");
+    if (secondary.length > primary.length) {
+      return secondary;
+    }
+  }
+
+  return primary;
 }
 
 export interface ShopifyProductImage {
@@ -315,4 +333,73 @@ export async function getProduct(identifier: string): Promise<ShopifyProductDeta
     // Fall back to ID
     return await getProductById(identifier);
   }
-}
+}
+
+export interface ShopifyCollection {
+  id: string;
+  title: string;
+  handle: string;
+  description?: string;
+  image?: {
+    url: string;
+    altText?: string | null;
+  } | null;
+}
+
+interface CollectionsResponse {
+  collections: {
+    nodes: ShopifyCollection[];
+  };
+}
+
+/**
+ * Fetch all Shopify collections, excluding "New Arrivals", "Best Sellers", "Recommended", and "Home page"
+ * so that only category collections (Clothing, Home Decor, Baby, etc.) are shown in the Shop dropdown.
+ */
+export async function getShopifyCollections(): Promise<ShopifyCollection[]> {
+  const query = `
+    query GetCollections {
+      collections(first: 50) {
+        nodes {
+          id
+          title
+          handle
+          description
+          image {
+            url
+            altText
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await shopifyFetch<CollectionsResponse>({ query });
+    const excludedTerms = [
+      "new arrival",
+      "new arrivals",
+      "best seller",
+      "best sellers",
+      "recommended",
+      "recommended products",
+      "home page",
+      "frontpage",
+    ];
+
+    const filtered = (data?.collections?.nodes || []).filter((col) => {
+      const titleLower = col.title.trim().toLowerCase();
+      const handleLower = col.handle.trim().toLowerCase();
+
+      return !excludedTerms.some(
+        (term) => titleLower.includes(term) || handleLower.includes(term)
+      );
+    });
+
+    return filtered;
+  } catch (error) {
+    console.error("Failed to fetch Shopify collections:", error);
+    return [];
+  }
+}
+
