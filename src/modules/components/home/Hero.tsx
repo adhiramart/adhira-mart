@@ -77,11 +77,10 @@ export default function Hero() {
               {stats.map((stat, index) => (
                 <div
                   key={stat.label}
-                  className={`pr-3 sm:pr-4 ${
-                    index !== 0
+                  className={`pr-3 sm:pr-4 ${index !== 0
                       ? "border-l border-neutral-300/80 pl-4 sm:pl-6"
                       : ""
-                  }`}
+                    }`}
                 >
                   <p className="text-2xl sm:text-3xl lg:text-[32px] font-black tracking-tight text-primary">
                     {stat.value}
@@ -103,14 +102,6 @@ export default function Hero() {
             >
               &#10022;
             </span>
-
-            {/* Script Quote Top Right */}
-            <div className="absolute -top-4 right-2 sm:right-6 z-20 text-right select-none pointer-events-none">
-              <p className="font-serif italic text-2xl sm:text-3xl text-neutral-800/85 tracking-wide">
-                A home for every you
-              </p>
-              <div className="w-12 h-0.5 bg-neutral-400 ml-auto mt-1" />
-            </div>
 
             {/* Sparkle Accent Bottom Right */}
             <span

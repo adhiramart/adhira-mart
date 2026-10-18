@@ -24,6 +24,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     redirect(params.return_to || "/account");
   }
 
+  // If no error, immediately redirect straight to Shopify Customer Accounts
+  if (!params.error) {
+    const returnTo = params.return_to ? `?return_to=${encodeURIComponent(params.return_to)}` : "";
+    redirect(`/api/auth/login${returnTo}`);
+  }
+
   const { clientId, shopId } = getShopifyAuthConfig();
   const isMissingClientId = !clientId;
   const errorMessage = params.error;

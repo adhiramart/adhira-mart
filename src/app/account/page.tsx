@@ -80,7 +80,7 @@ export default async function AccountPage() {
   const session = await getCustomerSession();
 
   if (!session?.accessToken) {
-    redirect("/account/login");
+    redirect("/api/auth/login?return_to=/account");
   }
 
   let customerData: CustomerData | null = null;
@@ -92,11 +92,11 @@ export default async function AccountPage() {
     });
   } catch (error) {
     console.error("Account page customer fetch error:", error);
-    redirect("/account/login?error=session_expired");
+    redirect("/api/auth/login?return_to=/account");
   }
 
   if (!customerData?.customer) {
-    redirect("/account/login?error=unable_to_load_customer");
+    redirect("/api/auth/login?return_to=/account");
   }
 
   const { customer } = customerData;
